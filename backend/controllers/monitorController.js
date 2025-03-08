@@ -1,5 +1,6 @@
 /**
- * Controller with advanced validation, error handling, and updated logic for monitors.
+ * Controller with advanced validation, error handling,
+ * and updated logic for monitors.
  */
 
 const { validationResult } = require('express-validator');
@@ -22,7 +23,7 @@ exports.createMonitor = async (req, res, next) => {
       return res.status(422).json({ errors: errors.array() });
     }
     const monitor = await Monitor.create(req.body);
-    res.status(201).json(monitor);
+    return res.status(201).json(monitor);
   } catch (err) {
     next(err);
   }
@@ -34,7 +35,7 @@ exports.getMonitorById = async (req, res, next) => {
     if (!monitor) {
       return res.status(404).json({ error: 'Monitor not found' });
     }
-    res.json(monitor);
+    return res.json(monitor);
   } catch (err) {
     next(err);
   }
@@ -52,7 +53,7 @@ exports.updateMonitor = async (req, res, next) => {
       return res.status(404).json({ error: 'Monitor not found' });
     }
     await monitor.update(req.body);
-    res.json(monitor);
+    return res.json(monitor);
   } catch (err) {
     next(err);
   }
@@ -65,20 +66,16 @@ exports.deleteMonitor = async (req, res, next) => {
       return res.status(404).json({ error: 'Monitor not found' });
     }
     await monitor.destroy();
-    res.status(204).send();
+    return res.status(204).send();
   } catch (err) {
     next(err);
   }
 };
 
-/**
- * Fetch historical logs for a specific monitor.
- */
 exports.getMonitorLogs = async (req, res, next) => {
   try {
-    const monitorId = req.params.id;
-    const logs = await MonitorLog.findAll({ where: { monitorId } });
-    res.json(logs);
+    const logs = await MonitorLog.findAll({ where: { monitorId: req.params.id } });
+    return res.json(logs);
   } catch (err) {
     next(err);
   }

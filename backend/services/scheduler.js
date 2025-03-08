@@ -7,16 +7,17 @@
 const cron = require('node-cron');
 const pLimit = require('p-limit');
 const axios = require('axios');
-const Monitor = require('../models/Monitor');
-const MonitorLog = require('../models/MonitorLog');
 const { Op } = require('sequelize');
 
-// Concurrency limit (configurable via ENV)
+const Monitor = require('../models/Monitor');
+const MonitorLog = require('../models/MonitorLog');
+
 const CONCURRENCY_LIMIT = process.env.CONCURRENCY_LIMIT || 10;
 const limit = pLimit(CONCURRENCY_LIMIT);
 
 /**
- * Checks a single monitor, updates its status, and records a log entry.
+ * Checks a single monitor, updates its status, records a log entry,
+ * and returns the old/new status for notification triggers.
  */
 async function checkMonitor(monitor) {
   const start = Date.now();
@@ -28,7 +29,7 @@ async function checkMonitor(monitor) {
     method: monitor.method,
     url: monitor.url,
     headers: monitor.headers || {},
-    timeout: 10000, // 10 seconds
+    timeout: 10000, // 10s
   };
 
   if (monitor.authentication && monitor.authentication.type === 'basic') {
@@ -43,11 +44,11 @@ async function checkMonitor(monitor) {
     responseTime = Date.now() - start;
     newStatus = response.status === monitor.expectedStatusCode ? 'UP' : 'DOWN';
     success = newStatus === 'UP';
-  } catch (err) {
-    // request failed or timed out
+  } catch {
     newStatus = 'DOWN';
   }
 
+  const oldStatus = monitor.status;
   await monitor.update({
     status: newStatus,
     lastCheckedAt: new Date(),
@@ -62,42 +63,31 @@ async function checkMonitor(monitor) {
     success,
   });
 
-  return { oldStatus: monitor.status, newStatus };
+  return { oldStatus, newStatus };
 }
 
 /**
  * Main scheduling function:
- *  - Runs every minute by default (* * * * *).
- *  - Fetches all monitors due for a check.
- *  - Parallelizes checks with concurrency limit.
+ * - Runs every minute (* * * * *) by default.
+ * - Fetches monitors that are due for a check.
+ * - Executes checks in parallel with concurrency control.
+ * - Triggers notifications when status changes.
  */
 function scheduleMonitoring(notifyCallback) {
-  // Running the job every minute
   cron.schedule('* * * * *', async () => {
     const now = Math.floor(Date.now() / 1000);
 
-    // Get monitors that are due for checks based on interval
-    const monitors = await Monitor.findAll({
-      where: {
-        [Op.or]: [
-          { lastCheckedAt: null },
-          {
-            lastCheckedAt: {
-              [Op.lte]: new Date(Date.now() - 1000), // ensure at least 1s offset
-            },
-          },
-        ],
-      },
-    });
+    // We fetch all monitors. Then we check if each one is due for a poll.
+    const monitors = await Monitor.findAll();
+    if (!monitors || monitors.length === 0) return;
 
-    if (!monitors.length) return;
-
-    // For each monitor, check if it's time to run (interval-based)
     const checks = [];
     for (const m of monitors) {
-      const lastCheckedTime = m.lastCheckedAt ? Math.floor(m.lastCheckedAt.getTime() / 1000) : 0;
+      const lastCheckedTime = m.lastCheckedAt
+        ? Math.floor(m.lastCheckedAt.getTime() / 1000)
+        : 0;
       const delta = now - lastCheckedTime;
-      // If last check time + interval has passed, we do a check
+
       if (delta >= m.interval) {
         checks.push(
           limit(async () => {
@@ -109,6 +99,8 @@ function scheduleMonitoring(notifyCallback) {
         );
       }
     }
+
+    // Run checks in parallel (with concurrency limit)
     await Promise.all(checks);
   });
 }

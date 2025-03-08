@@ -5,7 +5,7 @@ const router = require('express').Router();
 const { body, param } = require('express-validator');
 const monitorController = require('../controllers/monitorController');
 
-// GET all
+// GET all monitors
 router.get('/', monitorController.getAllMonitors);
 
 // CREATE new monitor
@@ -14,7 +14,9 @@ router.post(
   [
     body('name').isString().notEmpty().withMessage('Monitor name is required'),
     body('url').isURL().withMessage('A valid URL is required'),
-    body('interval').optional().isInt({ min: 5, max: 3600 })
+    body('interval')
+      .optional()
+      .isInt({ min: 5, max: 3600 })
       .withMessage('Interval must be between 5 and 3600 seconds'),
     body('method').optional().isString(),
     body('expectedStatusCode').optional().isInt(),

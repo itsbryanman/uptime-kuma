@@ -1,12 +1,10 @@
-/**
- * MonitorLog model captures historical checks for trending and analysis.
- * For each check, a record is inserted detailing the status, response time, etc.
- */
 const { DataTypes } = require('sequelize');
-const { getSequelizeInstance } = require('../utils/database');
+const { sequelize } = require('../utils/database');
 
-const sequelize = getSequelizeInstance();
-
+/**
+ * MonitorLog model stores historical checks for each monitor.
+ * Useful for uptime/downtime analysis over time.
+ */
 const MonitorLog = sequelize.define('MonitorLog', {
   monitorId: {
     type: DataTypes.INTEGER,
