@@ -1,0 +1,10 @@
+{
+  "discordWebhookUrl": "",
+  "slackWebhookUrl": "",
+  "telegramBotToken": "",
+  "telegramChatId": "",
+  "retryPolicy": {
+    "maxRetries": 3,
+    "baseDelayMs": 1000
+  }
+}

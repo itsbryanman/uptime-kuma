@@ -1,0 +1,10 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "dockerfilePath": "docker/Dockerfile"
+  },
+  "deploy": {
+    "startCommand": "node backend/app.js",
+    "restartPolicyType": "ON_FAILURE"
+  }
+}
